@@ -157,6 +157,11 @@
   const volumeSlider = /** @type {HTMLInputElement} */ (document.getElementById('volume'));
   const volumeOut = /** @type {HTMLOutputElement} */ (document.getElementById('volumeOut'));
   const dialPresetSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('dialPreset'));
+  const gapSlider = /** @type {HTMLInputElement | null} */ (document.getElementById('gap'));
+  const gapOut = /** @type {HTMLOutputElement | null} */ (document.getElementById('gapOut'));
+  const playSeqBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('playSeq'));
+  const stopSeqBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('stopSeq'));
+  const seqInput = /** @type {HTMLInputElement | null} */ (document.getElementById('seqInput'));
   const inputLog = /** @type {HTMLSpanElement} */ (document.getElementById('inputLog'));
   const currentKeyEl = /** @type {HTMLSpanElement} */ (document.getElementById('currentKey'));
   const statusEl = /** @type {HTMLSpanElement} */ (document.getElementById('status'));
@@ -164,6 +169,14 @@
 
   let mode = 'hold'; // 'hold' | 'auto'
   let autoDurationMs = Number(durationSlider.value);
+  let gapMs = gapSlider ? Number(gapSlider.value) : 60;
+
+  /** @type {number | null} */
+  let seqTimer = null;
+  /** @type {string[]} */
+  let seqBuffer = [];
+  /** 再生中フラグ */
+  let isSeqPlaying = false;
 
   function setStatus(text) { statusEl.textContent = text; }
   function setCurrentKey(text) { currentKeyEl.textContent = text || '—'; }
@@ -173,6 +186,7 @@
 
   durationOut.textContent = `${autoDurationMs} ms`;
   volumeOut.textContent = `${Math.round(Number(volumeSlider.value) * 100)}%`;
+  if (gapOut && gapSlider) gapOut.textContent = `${gapMs} ms`;
 
   // モード切替
   modeRadios.forEach(r => {
@@ -195,6 +209,87 @@
     engine.setVolume(Number(volumeSlider.value));
     volumeOut.textContent = `${Math.round(Number(volumeSlider.value) * 100)}%`;
   });
+
+  // シーケンス間隔
+  if (gapSlider && gapOut) {
+    gapSlider.addEventListener('input', () => {
+      gapMs = Number(gapSlider.value);
+      gapOut.textContent = `${gapMs} ms`;
+    });
+  }
+
+  function cancelSequencePlayback() {
+    if (seqTimer !== null) {
+      try { clearTimeout(seqTimer); } catch(_) {}
+      seqTimer = null;
+    }
+    isSeqPlaying = false;
+  }
+
+  function scheduleNextFromBuffer() {
+    if (!isSeqPlaying) return;
+    if (seqBuffer.length === 0) {
+      isSeqPlaying = false;
+      setStatus('待機中');
+      return;
+    }
+    const k = seqBuffer.shift();
+    if (!k) return scheduleNextFromBuffer();
+    // 受け付け可能キーのみ再生
+    if (!validKeys.has(k)) return scheduleNextFromBuffer();
+
+    // auto モードでの単発再生に合わせる（DTMF:トーン長 autoDurationMs + 間隔 gapMs）
+    const playOnce = () => {
+      engine.startToneForKey(k);
+      const localK = k;
+      setStatus('再生中');
+      window.setTimeout(() => {
+        if (engine.currentKey === localK) {
+          engine.stopTone();
+          setCurrentKey('—');
+        }
+        // 次のキーへ
+        seqTimer = window.setTimeout(scheduleNextFromBuffer, gapMs);
+      }, autoDurationMs);
+    };
+
+    setCurrentKey(k);
+    appendLog(k);
+    // UI ハイライト
+    const btn = document.querySelector(`.key[data-key="${CSS.escape(k)}"]`);
+    btn && btn.classList.add('is-active');
+    playOnce();
+    // 終了時にハイライト解除
+    window.setTimeout(() => { btn && btn.classList.remove('is-active'); }, autoDurationMs + 10);
+  }
+
+  function startSequencePlaybackFromText() {
+    // 入力欄から再生
+    const raw = seqInput ? seqInput.value : '';
+    const input = (raw || '').slice(0, 128); // 念のため上限
+    seqBuffer = input.split('');
+    if (seqBuffer.length === 0) return;
+    cancelSequencePlayback();
+    isSeqPlaying = true;
+    scheduleNextFromBuffer();
+  }
+
+  // 編集可能要素にフォーカスがある場合はキーボード入力を無視
+  function isFromEditableTarget(ev) {
+    const t = ev.target;
+    const isElEditable = (el) => {
+      if (!el || !(el instanceof HTMLElement)) return false;
+      if (el.isContentEditable) return true;
+      if (el instanceof HTMLInputElement) return true;
+      if (el instanceof HTMLTextAreaElement) return true;
+      if (el instanceof HTMLSelectElement) return true;
+      return false;
+    };
+    if (isElEditable(t)) return true;
+    const ae = document.activeElement;
+    if (isElEditable(ae)) return true;
+    return false;
+  }
 
   // ダイヤルトーン プリセット
   if (dialPresetSelect) {
@@ -267,8 +362,11 @@
   const pressedKeys = new Set();
 
   window.addEventListener('keydown', (e) => {
+    if (isFromEditableTarget(e)) return;
     const k = e.key;
     if (!validKeys.has(k)) return;
+    // 手動操作が入ったらシーケンス再生をキャンセル
+    if (isSeqPlaying) cancelSequencePlayback();
     if (pressedKeys.has(k) && mode === 'hold') return; // リピート抑止
     pressedKeys.add(k);
     e.preventDefault();
@@ -276,11 +374,25 @@
   });
 
   window.addEventListener('keyup', (e) => {
+    if (isFromEditableTarget(e)) return;
     const k = e.key;
     if (!validKeys.has(k)) return;
     pressedKeys.delete(k);
     e.preventDefault();
     triggerKeyUp(k);
   });
+
+  // シーケンス制御ボタン
+  if (playSeqBtn) {
+    playSeqBtn.addEventListener('click', () => {
+      startSequencePlaybackFromText();
+    });
+  }
+  if (stopSeqBtn) {
+    stopSeqBtn.addEventListener('click', () => {
+      cancelSequencePlayback();
+      setStatus('停止');
+    });
+  }
 })();
 
