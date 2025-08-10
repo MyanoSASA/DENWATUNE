@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DTMF/ぷー 音ジェネレータ</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1>DTMF / ぷー 音ジェネレータ</h1>
+        <p class="sub">キーボードまたはUIで操作できます（<code>0-9</code> と <code>#</code> は DTMF、<code>*</code> は米国式ダイヤルトーン、<code>/</code> は米国式通話切断音）。</p>
+      </header>
+
+      <section class="controls card">
+        <div class="control-group">
+          <label class="group-label">モード</label>
+          <div class="segmented">
+            <label>
+              <input type="radio" name="mode" value="hold" checked>
+              押している間だけ鳴る
+            </label>
+            <label>
+              <input type="radio" name="mode" value="auto">
+              一定時間 自動で鳴る
+            </label>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <div class="control-group">
+            <label for="dialPreset">ダイヤルトーン</label>
+            <div class="segmented">
+              <select id="dialPreset">
+                <option value="us" selected>米国式（350+440Hz 連続）</option>
+                <option value="jp">日本式（400Hz 連続）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <div class="control-group">
+            <label for="duration">自動再生 長さ（ms）</label>
+            <div class="slider-line">
+              <input id="duration" type="range" min="50" max="1000" step="10" value="180" />
+              <output id="durationOut">180 ms</output>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label for="volume">音量</label>
+            <div class="slider-line">
+              <input id="volume" type="range" min="0" max="1" step="0.01" value="0.3" />
+              <output id="volumeOut">30%</output>
+            </div>
+          </div>
+        </div>
+
+        <div class="inline-hint">
+          <span>※ ブラウザの仕様により、最初の操作時に音声の許可が必要な場合があります。</span>
+        </div>
+      </section>
+
+      <section class="keypad card" aria-label="DTMF keypad">
+        <div class="keypad__grid">
+          <button class="key" data-key="1">1</button>
+          <button class="key" data-key="2">2</button>
+          <button class="key" data-key="3">3</button>
+          <button class="key" data-key="4">4</button>
+          <button class="key" data-key="5">5</button>
+          <button class="key" data-key="6">6</button>
+          <button class="key" data-key="7">7</button>
+          <button class="key" data-key="8">8</button>
+          <button class="key" data-key="9">9</button>
+          <button class="key" data-key="*">*</button>
+          <button class="key" data-key="0">0</button>
+          <button class="key" data-key="#">#</button>
+        </div>
+      </section>
+
+      <section class="display card">
+        <div>
+          <div class="display__row">
+            <span class="label">入力:</span>
+            <span id="inputLog" class="value"></span>
+          </div>
+          <div class="display__row">
+            <span class="label">現在のキー:</span>
+            <span id="currentKey" class="value">—</span>
+          </div>
+          <div class="display__row">
+            <span class="label">状態:</span>
+            <span id="status" class="value">待機中</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="app__footer">
+        <small>DTMF: 二周波同時音。<code>*</code> は米国式ダイヤルトーン（350Hz+440Hz 連続）、<code>/</code> は米国式通話切断音（480Hz+620Hz、0.25s/0.25s）を再生します。</small>
+      </footer>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+  </html>
+
